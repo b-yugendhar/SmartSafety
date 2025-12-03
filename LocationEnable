@@ -1,0 +1,138 @@
+-----------------MainActivity.kt
+
+package com.example.loctracker  
+import android.Manifest
+import android.content.pm.PackageManager
+import androidx.appcompat.app.AppCompatActivity
+import android.os.Bundle
+import android.widget.TextView
+import android.widget.Toast
+import androidx.core.app.ActivityCompat
+import androidx.core.content.ContextCompat
+import com.google.android.gms.location.*
+
+class MainActivity : AppCompatActivity() {
+
+    private lateinit var t: TextView
+    private lateinit var fusedClient: FusedLocationProviderClient
+
+    // only foreground permissions for now
+    private val permissions = arrayOf(
+        Manifest.permission.ACCESS_FINE_LOCATION,
+        Manifest.permission.ACCESS_COARSE_LOCATION
+    )
+
+    override fun onCreate(savedInstanceState: Bundle?) {
+        super.onCreate(savedInstanceState)
+        setContentView(R.layout.activity_main)
+
+        t = findViewById(R.id.locText)
+        fusedClient = LocationServices.getFusedLocationProviderClient(this)
+
+        if (!hasPermissions()) {
+            ActivityCompat.requestPermissions(this, permissions, 100)
+        } else {
+            startLocationUpdates()
+        }
+    }
+
+    private fun hasPermissions(): Boolean {
+        for (p in permissions) {
+            if (ContextCompat.checkSelfPermission(this, p) != PackageManager.PERMISSION_GRANTED)
+                return false
+        }
+        return true
+    }
+
+    private fun startLocationUpdates() {
+
+        // final safety check
+        val fine = ContextCompat.checkSelfPermission(this, Manifest.permission.ACCESS_FINE_LOCATION)
+        val coarse = ContextCompat.checkSelfPermission(this, Manifest.permission.ACCESS_COARSE_LOCATION)
+
+        if (fine != PackageManager.PERMISSION_GRANTED &&
+            coarse != PackageManager.PERMISSION_GRANTED) {
+
+            Toast.makeText(this, "Location permission not granted", Toast.LENGTH_SHORT).show()
+            return
+        }
+
+        val request = LocationRequest.Builder(
+            Priority.PRIORITY_HIGH_ACCURACY,
+            3000L                    // 3 seconds
+        )
+            .setMinUpdateIntervalMillis(2000L)
+            .build()
+
+        fusedClient.requestLocationUpdates(request, object : LocationCallback() {
+            override fun onLocationResult(result: LocationResult) {
+                val location = result.lastLocation
+                if (location != null) {
+                    // just to prove it's being called
+                    Toast.makeText(this@MainActivity, "Got location!", Toast.LENGTH_SHORT).show()
+                    t.text = "Latitude: ${location.latitude}\nLongitude: ${location.longitude}"
+                }
+            }
+        }, mainLooper)
+    }
+
+    override fun onRequestPermissionsResult(
+        requestCode: Int,
+        permissions: Array<out String>,
+        grantResults: IntArray
+    ) {
+        super.onRequestPermissionsResult(requestCode, permissions, grantResults)
+
+        if (requestCode == 100) {
+            if (grantResults.isNotEmpty() && grantResults[0] == PackageManager.PERMISSION_GRANTED) {
+                startLocationUpdates()
+            } else {
+                Toast.makeText(this, "Permission denied", Toast.LENGTH_LONG).show()
+            }
+        }
+    }
+}
+
+
+
+----app>res>layout>activity_main.xml
+
+<?xml version="1.0" encoding="utf-8"?>
+<LinearLayout xmlns:android="http://schemas.android.com/apk/res/android"
+    android:layout_width="match_parent"
+    android:layout_height="match_parent"
+    android:padding="20dp"
+    android:orientation="vertical">
+
+    <TextView
+        android:id="@+id/locText"
+        android:layout_width="wrap_content"
+        android:layout_height="wrap_content"
+        android:text="Location Loading..."
+        android:textSize="22sp"
+        android:textStyle="bold"/>
+</LinearLayout>
+
+
+------app>res>values>themes.xml
+
+<?xml version="1.0" encoding="utf-8"?>
+<resources xmlns:tools="http://schemas.android.com/tools">
+    <style name="Theme.Loctracker" parent="Theme.AppCompat.Light.NoActionBar">
+        <!-- Customize your theme here -->
+    </style>
+</resources>
+
+
+-----Manifests.xml
+
+
+    <uses-permission android:name="android.permission.ACCESS_FINE_LOCATION"/>
+    <uses-permission android:name="android.permission.ACCESS_COARSE_LOCATION"/>
+    <uses-permission android:name="android.permission.ACCESS_BACKGROUND_LOCATION"/>
+
+
+
+----Dependencies
+
+ implementation("com.google.android.gms:play-services-location:21.0.1")
